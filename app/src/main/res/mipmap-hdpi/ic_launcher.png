@@ -1,0 +1,81 @@
+package com.gsls.sevendaykill.fragment;
+
+import android.Manifest;
+import android.content.Intent;
+import android.content.pm.PackageManager;
+import android.graphics.Bitmap;
+import android.graphics.Color;
+import android.graphics.drawable.BitmapDrawable;
+import android.location.Location;
+import android.location.LocationListener;
+import android.location.LocationManager;
+import android.os.Build;
+import android.os.Bundle;
+import android.provider.Settings;
+import android.view.MotionEvent;
+import android.view.View;
+import android.view.ViewGroup;
+import android.widget.Button;
+import android.widget.EditText;
+import android.widget.FrameLayout;
+import android.widget.ImageView;
+import android.widget.LinearLayout;
+import android.widget.RelativeLayout;
+import android.widget.Toast;
+
+import androidx.annotation.NonNull;
+import androidx.annotation.Nullable;
+import androidx.appcompat.app.AppCompatActivity;
+import androidx.core.app.ActivityCompat;
+import androidx.core.content.ContextCompat;
+
+import com.baidu.location.BDAbstractLocationListener;
+import com.baidu.location.BDLocation;
+import com.baidu.location.LocationClient;
+import com.baidu.location.LocationClientOption;
+import com.baidu.mapapi.CoordType;
+import com.baidu.mapapi.SDKInitializer;
+import com.baidu.mapapi.animation.Animation;
+import com.baidu.mapapi.animation.Transformation;
+import com.baidu.mapapi.map.BaiduMap;
+import com.baidu.mapapi.map.BitmapDescriptor;
+import com.baidu.mapapi.map.BitmapDescriptorFactory;
+import com.baidu.mapapi.map.CircleOptions;
+import com.baidu.mapapi.map.InfoWindow;
+import com.baidu.mapapi.map.MapBaseIndoorMapInfo;
+import com.baidu.mapapi.map.MapPoi;
+import com.baidu.mapapi.map.MapStatus;
+import com.baidu.mapapi.map.MapStatusUpdate;
+import com.baidu.mapapi.map.MapStatusUpdateFactory;
+import com.baidu.mapapi.map.MapView;
+import com.baidu.mapapi.map.Marker;
+import com.baidu.mapapi.map.MarkerOptions;
+import com.baidu.mapapi.map.MyLocationConfiguration;
+import com.baidu.mapapi.map.MyLocationData;
+import com.baidu.mapapi.map.OverlayOptions;
+import com.baidu.mapapi.map.Polyline;
+import com.baidu.mapapi.map.Stroke;
+import com.baidu.mapapi.model.LatLng;
+import com.gsls.gt.GT;
+import com.gsls.sevendaykill.R;
+import com.gsls.sevendaykill.base.BaseFragments;
+import com.gsls.sevendaykill.util.MapUtil;
+
+import java.math.BigDecimal;
+
+import javax.microedition.khronos.opengles.GL10;
+
+import static android.content.pm.PackageManager.PERMISSION_GRANTED;
+
+public class MapFragment extends BaseFragments {
+
+    @GT.Annotations.GT_View(R.id.frameLayout_map)
+    protected FrameLayout frameLayout;
+
+    @GT.Annotations.GT_View(R.id.edit_data)
+    EditText editText;
+
+    private LocationClient mLocationClient;//定位接口
+    private static final String PATH_DAYTIME = "Map_Earth_Daytime.json";//白天地图
+    private static final String PATH_NIGHT = "Map_Earth_Night.json";//晚上地图
+  

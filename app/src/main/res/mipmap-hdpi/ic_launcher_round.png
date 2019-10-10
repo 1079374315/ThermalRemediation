@@ -1,0 +1,127 @@
+package com.gsls.sevendaykill.fragment;
+
+import android.Manifest;
+import android.content.Intent;
+import android.content.pm.PackageManager;
+import android.graphics.Bitmap;
+import android.graphics.Color;
+import android.graphics.drawable.BitmapDrawable;
+import android.location.Location;
+import android.location.LocationListener;
+import android.location.LocationManager;
+import android.os.Build;
+import android.os.Bundle;
+import android.provider.Settings;
+import android.view.MotionEvent;
+import android.view.View;
+import android.view.ViewGroup;
+import android.widget.Button;
+import android.widget.EditText;
+import android.widget.FrameLayout;
+import android.widget.ImageView;
+import android.widget.LinearLayout;
+import android.widget.RelativeLayout;
+import android.widget.Toast;
+
+import androidx.annotation.NonNull;
+import androidx.annotation.Nullable;
+import androidx.appcompat.app.AppCompatActivity;
+import androidx.core.app.ActivityCompat;
+import androidx.core.content.ContextCompat;
+
+import com.baidu.location.BDAbstractLocationListener;
+import com.baidu.location.BDLocation;
+import com.baidu.location.LocationClient;
+import com.baidu.location.LocationClientOption;
+import com.baidu.mapapi.CoordType;
+import com.baidu.mapapi.SDKInitializer;
+import com.baidu.mapapi.animation.Animation;
+import com.baidu.mapapi.animation.Transformation;
+import com.baidu.mapapi.map.BaiduMap;
+import com.baidu.mapapi.map.BitmapDescriptor;
+import com.baidu.mapapi.map.BitmapDescriptorFactory;
+import com.baidu.mapapi.map.CircleOptions;
+import com.baidu.mapapi.map.InfoWindow;
+import com.baidu.mapapi.map.MapBaseIndoorMapInfo;
+import com.baidu.mapapi.map.MapPoi;
+import com.baidu.mapapi.map.MapStatus;
+import com.baidu.mapapi.map.MapStatusUpdate;
+import com.baidu.mapapi.map.MapStatusUpdateFactory;
+import com.baidu.mapapi.map.MapView;
+import com.baidu.mapapi.map.Marker;
+import com.baidu.mapapi.map.MarkerOptions;
+import com.baidu.mapapi.map.MyLocationConfiguration;
+import com.baidu.mapapi.map.MyLocationData;
+import com.baidu.mapapi.map.OverlayOptions;
+import com.baidu.mapapi.map.Polyline;
+import com.baidu.mapapi.map.Stroke;
+import com.baidu.mapapi.model.LatLng;
+import com.gsls.gt.GT;
+import com.gsls.sevendaykill.R;
+import com.gsls.sevendaykill.base.BaseFragments;
+import com.gsls.sevendaykill.util.MapUtil;
+
+import java.math.BigDecimal;
+
+import javax.microedition.khronos.opengles.GL10;
+
+import static android.content.pm.PackageManager.PERMISSION_GRANTED;
+
+public class MapFragment extends BaseFragments {
+
+    @GT.Annotations.GT_View(R.id.frameLayout_map)
+    protected FrameLayout frameLayout;
+
+    @GT.Annotations.GT_View(R.id.edit_data)
+    EditText editText;
+
+    private LocationClient mLocationClient;//定位接口
+    private static final String PATH_DAYTIME = "Map_Earth_Daytime.json";//白天地图
+    private static final String PATH_NIGHT = "Map_Earth_Night.json";//晚上地图
+    private MapView mapView;        //地图对象
+    private BaiduMap baiduMap;      //地图控制器
+    private MapUtil mapUtil;        //地图工具包
+    private boolean whetherLocation = true;//是否允许定位
+
+    static MapFragment newInstance() {
+        Bundle args = new Bundle();
+        MapFragment fragment = new MapFragment();
+        fragment.setArguments(args);
+        return fragment;
+    }
+
+    @Override
+    protected int loadLayout() {
+        return R.layout.fragment_map;
+    }
+
+    @Override
+    protected void initView(@NonNull View view, @Nullable Bundle savedInstanceState) {
+        build(this, view);  //绑定 Fragment
+        initMap();                  //初始化地图
+        showLocation();             //显示定位
+        MapAllListener();           //地图所有事件
+    }
+
+    //============================================初始化地图=================================
+    private void initMap() {
+
+        if (MapUtil.getDaytimeOrNight().equals("白天")) {
+            MapUtil.setMapCustomFile(activity, PATH_DAYTIME);//解析个性化地图
+        } else {  //晚上
+            MapUtil.setMapCustomFile(activity, PATH_NIGHT);//解析个性化地图
+        }
+
+        SDKInitializer.initialize(activity.getApplicationContext());//在使用SDK各组件之前初始化context信息，传入ApplicationContext
+        SDKInitializer.setCoordType(CoordType.BD09LL); //自4.3.0起，百度地图SDK所有接口均支持百度坐标和国测局坐标，用此方法设置您使用的坐标类型.包括BD09LL和GCJ02两种坐标，默认是BD09LL坐标。
+
+        //初始化 MapUtil 工具包
+        mapUtil = new MapUtil(activity);
+
+        //初始化 百度地图 initMapUtil
+        mapUtil.initMapUtil();
+        mapView = mapUtil.getMapView();
+        baiduMap = mapView.getMap();
+
+        //初始化 原始地图参数
+//        map

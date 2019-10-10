@@ -1,0 +1,236 @@
+package com.gsls.sevendaykill.fragment;
+
+import android.Manifest;
+import android.content.Intent;
+import android.content.pm.PackageManager;
+import android.graphics.Bitmap;
+import android.graphics.Color;
+import android.graphics.drawable.BitmapDrawable;
+import android.location.Location;
+import android.location.LocationListener;
+import android.location.LocationManager;
+import android.os.Build;
+import android.os.Bundle;
+import android.provider.Settings;
+import android.view.MotionEvent;
+import android.view.View;
+import android.view.ViewGroup;
+import android.widget.Button;
+import android.widget.EditText;
+import android.widget.FrameLayout;
+import android.widget.ImageView;
+import android.widget.LinearLayout;
+import android.widget.RelativeLayout;
+import android.widget.Toast;
+
+import androidx.annotation.NonNull;
+import androidx.annotation.Nullable;
+import androidx.appcompat.app.AppCompatActivity;
+import androidx.core.app.ActivityCompat;
+import androidx.core.content.ContextCompat;
+
+import com.baidu.location.BDAbstractLocationListener;
+import com.baidu.location.BDLocation;
+import com.baidu.location.LocationClient;
+import com.baidu.location.LocationClientOption;
+import com.baidu.mapapi.CoordType;
+import com.baidu.mapapi.SDKInitializer;
+import com.baidu.mapapi.animation.Animation;
+import com.baidu.mapapi.animation.Transformation;
+import com.baidu.mapapi.map.BaiduMap;
+import com.baidu.mapapi.map.BitmapDescriptor;
+import com.baidu.mapapi.map.BitmapDescriptorFactory;
+import com.baidu.mapapi.map.CircleOptions;
+import com.baidu.mapapi.map.InfoWindow;
+import com.baidu.mapapi.map.MapBaseIndoorMapInfo;
+import com.baidu.mapapi.map.MapPoi;
+import com.baidu.mapapi.map.MapStatus;
+import com.baidu.mapapi.map.MapStatusUpdate;
+import com.baidu.mapapi.map.MapStatusUpdateFactory;
+import com.baidu.mapapi.map.MapView;
+import com.baidu.mapapi.map.Marker;
+import com.baidu.mapapi.map.MarkerOptions;
+import com.baidu.mapapi.map.MyLocationConfiguration;
+import com.baidu.mapapi.map.MyLocationData;
+import com.baidu.mapapi.map.OverlayOptions;
+import com.baidu.mapapi.map.Polyline;
+import com.baidu.mapapi.map.Stroke;
+import com.baidu.mapapi.model.LatLng;
+import com.gsls.gt.GT;
+import com.gsls.sevendaykill.R;
+import com.gsls.sevendaykill.base.BaseFragments;
+import com.gsls.sevendaykill.util.MapUtil;
+
+import java.math.BigDecimal;
+
+import javax.microedition.khronos.opengles.GL10;
+
+import static android.content.pm.PackageManager.PERMISSION_GRANTED;
+
+public class MapFragment extends BaseFragments {
+
+    @GT.Annotations.GT_View(R.id.frameLayout_map)
+    protected FrameLayout frameLayout;
+
+    @GT.Annotations.GT_View(R.id.edit_data)
+    EditText editText;
+
+    private LocationClient mLocationClient;//定位接口
+    private static final String PATH_DAYTIME = "Map_Earth_Daytime.json";//白天地图
+    private static final String PATH_NIGHT = "Map_Earth_Night.json";//晚上地图
+    private MapView mapView;        //地图对象
+    private BaiduMap baiduMap;      //地图控制器
+    private MapUtil mapUtil;        //地图工具包
+    private boolean whetherLocation = true;//是否允许定位
+
+    static MapFragment newInstance() {
+        Bundle args = new Bundle();
+        MapFragment fragment = new MapFragment();
+        fragment.setArguments(args);
+        return fragment;
+    }
+
+    @Override
+    protected int loadLayout() {
+        return R.layout.fragment_map;
+    }
+
+    @Override
+    protected void initView(@NonNull View view, @Nullable Bundle savedInstanceState) {
+        build(this, view);  //绑定 Fragment
+        initMap();                  //初始化地图
+        showLocation();             //显示定位
+        MapAllListener();           //地图所有事件
+    }
+
+    //============================================初始化地图=================================
+    private void initMap() {
+
+        if (MapUtil.getDaytimeOrNight().equals("白天")) {
+            MapUtil.setMapCustomFile(activity, PATH_DAYTIME);//解析个性化地图
+        } else {  //晚上
+            MapUtil.setMapCustomFile(activity, PATH_NIGHT);//解析个性化地图
+        }
+
+        SDKInitializer.initialize(activity.getApplicationContext());//在使用SDK各组件之前初始化context信息，传入ApplicationContext
+        SDKInitializer.setCoordType(CoordType.BD09LL); //自4.3.0起，百度地图SDK所有接口均支持百度坐标和国测局坐标，用此方法设置您使用的坐标类型.包括BD09LL和GCJ02两种坐标，默认是BD09LL坐标。
+
+        //初始化 MapUtil 工具包
+        mapUtil = new MapUtil(activity);
+
+        //初始化 百度地图 initMapUtil
+        mapUtil.initMapUtil();
+        mapView = mapUtil.getMapView();
+        baiduMap = mapView.getMap();
+
+        //初始化 原始地图参数
+//        mapUtil.map_setScrollGesturesEnabled(false);//是否允许拖拽手势，默认允许
+//        mapUtil.map_zoomGesturesEnabled(false);     //是否允许缩放手势，默认允许
+//        mapUtil.map_rotateGesturesEnabled(false);   //是否允许地图旋转手势，默认允许
+//        mapUtil.options_overlookingGesturesEnabled(false);   //是否允许地图旋转手势，默认允许
+
+        mapUtil.map_zoomControlsEnabled(false);     //是否显示缩放按钮控件，默认允许
+        mapUtil.map_scaleControlEnabled(false);     //是否显示比例尺控件，默认显示
+        mapUtil.map_whetherOpenCompass(false);      //关闭指南针功能
+        mapUtil.map_whetherOpenMyLocation(true);    //开启定位模式
+        mapUtil.map_setZoom(21f);                   //将地图缩放尺寸
+        frameLayout.addView(mapView);               //添加百度地图
+        MapView.setMapCustomEnable(true);//设置个性化地图启用
+            /*
+                mCurrentMode = LocationMode.FOLLOWING;//定位跟随态
+                mCurrentMode = LocationMode.NORMAL;   //默认为 LocationMode.NORMAL 普通态
+                mCurrentMode = LocationMode.COMPASS;  //定位罗盘态
+             */
+
+        //初始化图标
+        baiduMap.setMyLocationConfiguration(new MyLocationConfiguration(
+                MyLocationConfiguration.LocationMode.NORMAL                //定位模式
+                , true                                                   //是否开启方向
+//                ,BitmapDescriptorFactory.fromResource(R.mipmap.logo)      //设置自定义定位图标
+                , null
+
+        ));
+
+    }
+
+    //===========================================实时监测 显示定位============================
+    private void showLocation() {
+
+
+        //======================================================手机定位
+        LocationManager locationManager = (LocationManager) activity.getSystemService(activity.LOCATION_SERVICE);//获取 LocationManager 对象
+        showGPSContacts(locationManager);//动态申请权限
+        //权限检查 ，自动生成的
+        if (ActivityCompat.checkSelfPermission(activity, Manifest.permission.ACCESS_FINE_LOCATION) != PackageManager.PERMISSION_GRANTED && ActivityCompat.checkSelfPermission(activity, Manifest.permission.ACCESS_COARSE_LOCATION) != PackageManager.PERMISSION_GRANTED) {
+            GT.log_e("进入 权限检查");
+            return;
+        }
+        //设置监听器
+        locationManager.requestLocationUpdates(
+                LocationManager.GPS_PROVIDER,   //指定GPS 数据提供者
+                1000,                //每隔1秒钟，监听数据
+                1,                //位置间隔1 米
+                new LocationListener() {        //监听 GPS 定位信息是否改变
+                    @Override
+                    public void onLocationChanged(Location location) {
+                        GT.log_e("GPS 信息发送了改变");
+                        locationUpdates(location);//传递到 locationUpdates 方法中
+                    }
+                    @Override
+                    public void onStatusChanged(String provider, int status, Bundle extras) {GT.log_e("GPS 状态改变时回调");}
+                    @Override
+                    public void onProviderEnabled(String provider) {//定位提供者启动时回调
+                        GT.log_e("GPS 定位提供者启动时回调");
+                    }
+
+                    @Override
+                    public void onProviderDisabled(String provider) {//定位提供者关闭时回调
+                        GT.log_e("GPS 定位提供者关闭时回调");
+                    }
+                }
+        );
+        Location location = locationManager.getLastKnownLocation(LocationManager.GPS_PROVIDER);//从 GPS 中获取最新的定位信息
+        locationUpdates(location);
+
+
+
+
+
+        //=====================================================百度定位
+        mLocationClient = new LocationClient(activity);
+        LocationClientOption option = new LocationClientOption();//通过LocationClientOption设置LocationClient相关参数
+        option.setOpenGps(true); // 打开gps
+        option.setCoorType("bd09ll"); // 设置坐标类型
+        option.setScanSpan(1000);
+        mLocationClient.setLocOption(option);//设置locationClientOption
+        mLocationClient.registerLocationListener(new MyLocationListener());
+        mLocationClient.start();//开启地图定位图层
+
+
+
+    }
+
+
+    //===========================================地图镜头=====================================
+    private double XY_location[] = {0, 0};  //记录旧的经纬度
+    private float direction = 0;            //百度地图图标的方向
+    private boolean isPhoneGPS = false;     //是否使用手机 GPS
+
+    // GPS 获取 手机原生 定位信息的经纬度
+    private void locationUpdates(Location location){
+
+        if (location == null || mapView == null){
+            return;
+        }
+
+        double latitude = location.getLatitude();//纬度
+        double longitude = location.getLongitude();//经度
+
+        log("手机纬度:" + latitude);
+        log("手机经度:" + longitude);
+
+    }
+
+    // GPS 获取 百度地图 定位信息的经纬度
+    private class MyLocationListener extends BDAbstractLocationListener {
+        @Overri
